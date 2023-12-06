@@ -67,10 +67,10 @@ def guardian_query(keyword, from_date, to_date, page='1', page_size='200'):
     
     return query
  
-query_abortion_1 = guardian_query(keyword='abortion',from_date='2022-06-24',to_date='2022-09-24', page='1')
-query_abortion_2 = guardian_query(keyword='abortion',from_date='2022-06-24',to_date='2022-09-24', page='2')
-query_abortion_3 = guardian_query(keyword='abortion',from_date='2022-06-24',to_date='2022-09-24', page='3')
-query = [query_abortion_1,query_abortion_2,query_abortion_3]
+#query_abortion_1 = guardian_query(keyword='abortion',from_date='2022-06-24',to_date='2022-09-24', page='1')
+#query_abortion_2 = guardian_query(keyword='abortion',from_date='2022-06-24',to_date='2022-09-24', page='2')
+#query_abortion_3 = guardian_query(keyword='abortion',from_date='2022-06-24',to_date='2022-09-24', page='3')
+#query = [query_abortion_1,query_abortion_2,query_abortion_3]
 
 
 def get_guardian_metadata(query):
@@ -90,8 +90,8 @@ def get_guardian_metadata(query):
     return section, date, title, urls
 
 
-metadata_abortion = get_guardian_metadata(query)
-url_abortion = metadata_abortion[3]
+#metadata_abortion = get_guardian_metadata(query)
+#url_abortion = metadata_abortion[3]
 
 
 def metadata_train_test_split(metadata, n = 20):
@@ -112,7 +112,7 @@ def metadata_train_test_split(metadata, n = 20):
     
     return train_metadata, test_metadata, train_index, test_index
 
-splittedmetadata = metadata_train_test_split(metadata_abortion)
+#splittedmetadata = metadata_train_test_split(metadata_abortion)
 
 
 def write_guardian_metadata(outfile_keywords, splitted_metadata, dirs):
@@ -331,8 +331,8 @@ def main(argv=None):
 
     out_dir = argv[1]
     dirs = create_folders(out_dir)
-    write_guardian_metadata(outfile_keywords = 'abortion', splitted_metadata = splittedmetadata, dirs=dirs)
-    write_guardian_output(outfile_keywords = 'abortion', splitted_metadata = splittedmetadata, dirs=dirs)
+    #write_guardian_metadata(outfile_keywords = 'abortion', splitted_metadata = splittedmetadata, dirs=dirs)
+    #write_guardian_output(outfile_keywords = 'abortion', splitted_metadata = splittedmetadata, dirs=dirs)
 
     sections = write_nos_output_and_section(splitted_metadata = nos_splittedmedatada, keyword = 'abortus', dirs=dirs)
     write_nos_metadata(dirs = dirs, outfile_keywords='abortus', splittedmetadata=nos_splittedmedatada, sections=sections)
