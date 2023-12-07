@@ -2,6 +2,7 @@ import pandas as pd
 import string
 import statistics
 import numpy as np
+from scipy.stats import spearmanr
 
 import os
 import sys
@@ -22,6 +23,7 @@ import statsmodels
 ############ USING STANZA CHECK ############
 use_stanza = False
 use_pickle = False
+use_kw = False
 print("Please put this script under the same folder as eng and nld data.")
 print("***IMPORTANT INFORMATION***")
 print("stanza model takes long to load and it may take extremely long to process. You can select to use pre-processed texts.")
@@ -34,8 +36,12 @@ if use_stanza == True:
 if use_pickle == True:
     import pickle
     use_stanza = False
+if click.confirm('Keyword calculation uses around 5-10 minutes. Do you want to use pre-calculated keywords?', default=False):
+    use_kw = True
+    kw = pd.read_csv('keys.csv')
 print("Using stanza: ", use_stanza)
 print("Using pre-processed articles: ", use_pickle)
+print("Using pre-calculated keywords: ", use_kw)
 print("+++++++++ STARTING ANALYZE +++++++++")
 
 
@@ -93,6 +99,7 @@ print("Average title length of ENG test: ", eng_test_meta['title'].apply(len).me
 print("Average title length of NLD train: ", nld_train_meta['title'].apply(len).mean())
 print("Average title length of NLD test: ", nld_test_meta['title'].apply(len).mean())
 
+print("Initializing further calculations..")
 
 def get_stylistic(articles):
     from collections import Counter
@@ -165,13 +172,6 @@ def extract_keyword(articles, language):
     return kw
 
 
-def create_wordcloud(keywords, figname):
-    wc = WordCloud().generate(str(keywords).replace("'",""))
-    plt.imshow(wc, interpolation='bilinear')
-    plt.axis("off")
-    plt.savefig(save_results_to + figname + '.png', dpi = 300)
-    plt.close()
-
 
 ############ SENTIMENT ANALYSIS ############
 def get_sentiment(articles, language):
@@ -204,11 +204,27 @@ def create_df(meta, articles, language):
     df['readability'] = readability
     return df
 
+if use_kw == False:
+    eng_train_df = create_df(eng_train_meta, eng_train_articles, 'eng')
+    eng_test_df = create_df(eng_test_meta, eng_test_articles, 'eng')
+    nld_train_df = create_df(nld_train_meta, nld_train_articles, 'nld')
+    nld_test_df = create_df(nld_test_meta, nld_test_articles, 'nld')
 
-eng_train_df = create_df(eng_train_meta, eng_train_articles, 'eng')
-eng_test_df = create_df(eng_test_meta, eng_test_articles, 'eng')
-nld_train_df = create_df(nld_train_meta, nld_train_articles, 'nld')
-nld_test_df = create_df(nld_test_meta, nld_test_articles, 'nld')
+def create_df_with_kw(meta, articles, language, kwn):
+    df = pd.DataFrame(articles, columns=['content'])
+    df['section'] = meta['section']
+    df['keyword'] = kw[kwn]
+    polarity, subjectivity, readability = get_sentiment(articles, language)
+    df['polarity'] = polarity
+    df['subjectivity'] = subjectivity
+    df['readability'] = readability
+    return df
+
+if use_kw == True:
+    eng_train_df = create_df_with_kw(eng_train_meta, eng_train_articles, 'eng','eng_train')
+    eng_test_df = create_df_with_kw(eng_test_meta, eng_test_articles, 'eng','eng_test')
+    nld_train_df = create_df_with_kw(nld_train_meta, nld_train_articles, 'nld','nld_train')
+    nld_test_df = create_df_with_kw(nld_test_meta, nld_test_articles, 'nld','nld_test')
 
 
 ############ COUNTRY ASSUMPTIONS ############
@@ -245,8 +261,33 @@ nld_train_country = separate_nld_country(nld_train_df)
 print("====== nld test statistics ======")
 nld_test_country = separate_nld_country(nld_test_df)
 
+print("++++++++ Spearman correlations ++++++++")
+print("++++++++ (country - polarity) ++++++++")
+print("ENG train Spearman correlation (country - polarity):\n", spearmanr(eng_train_country['section'].replace({'US':-1, 'non_US':1}), eng_train_country['polarity']))
+print("ENG test Spearman correlation (country - polarity):\n", spearmanr(eng_test_country['section'].replace({'US':-1, 'non_US':1}), eng_test_country['polarity']))
+print("NLD train Spearman correlation (country - polarity):\n", spearmanr(nld_train_country['section'].replace({'NL':-1, 'Foreign':1}), nld_train_country['polarity']))
+print("NLD test Spearman correlation (country - polarity):\n", spearmanr(nld_test_country['section'].replace({'NL':-1, 'Foreign':1}), nld_test_country['polarity']))
+
+print("++++++++ (subjectivity - ABSpolarity) ++++++++")
+print("ENG test Spearman correlation (subjectivity - ABSpolarity):\n", spearmanr(eng_test_country['subjectivity'], abs(eng_test_country['polarity'])))
+print("NLD test Spearman correlation (subjectivity - ABSpolarity):\n", spearmanr(nld_test_country['subjectivity'], abs(nld_test_country['polarity'])))
+print("ENG test Spearman correlation (subjectivity - readability):\n", spearmanr(eng_test_country['subjectivity'], eng_test_country['readability']))
+print("NLD test Spearman correlation (subjectivity - readability):\n", spearmanr(nld_test_country['subjectivity'], nld_test_country['readability']))
+
 
 ############ PLOTTING ############
+def create_wordcloud(df, figname):
+    keywords = df['keyword'].to_string(index=False, header=False).replace(" ","").replace("\n"," ")
+    wc = WordCloud().generate(keywords)
+    plt.imshow(wc, interpolation='bilinear')
+    plt.axis("off")
+    plt.savefig(save_results_to + figname + '.png', dpi = 100)
+    plt.close()
+
+create_wordcloud(eng_train_df, 'eng_keys')
+create_wordcloud(nld_train_df, 'nld_keys')
+
+
 def nld_section_and_pie(nld_df, figname, type='train'):
     nld_majors = ['Buitenland','Binnenland','Politiek']
     nld_sections = nld_df.drop(columns=['content'])
@@ -280,10 +321,13 @@ def eng_section_and_pie(eng_df, figname, type='train'):
     plt.close()
     return eng_sections
 
+print("plotting pie charts...")
 eng_train_sections = eng_section_and_pie(eng_train_df,'eng_train_sections')
 eng_test_sections = eng_section_and_pie(eng_test_df,'eng_test_sections')
 nld_train_sections = nld_section_and_pie(nld_train_df,'nld_train_sections')
 nld_test_sections = nld_section_and_pie(nld_test_df,'nld_test_sections')
+print("section pie charts saved to /results")
+
 
 # https://stackoverflow.com/a/50690729
 def corrdot(*args, **kwargs): 
@@ -307,10 +351,13 @@ def create_coorplot(df, figname):
     g.savefig(save_results_to + figname + '.png', dpi = 100)
     plt.close()
 
+print("plotting correlation plots...")
 create_coorplot(eng_train_df, 'eng_train_coor')
 create_coorplot(eng_test_df, 'eng_test_coor')
 create_coorplot(nld_train_df, 'nld_train_coor')
 create_coorplot(nld_test_df, 'nld_test_coor')
+print("correlation plots saved to /results")
+
 
 def create_stripplot(section_df, figname):
     s = sns.stripplot(data=section_df, x='section', y='polarity',hue='subjectivity', legend = False)
@@ -319,7 +366,13 @@ def create_stripplot(section_df, figname):
     #plt.show()
     plt.savefig(save_results_to + figname + '.png', dpi = 100)
     plt.close()
-
+    
+import warnings
+warnings.filterwarnings("ignore")
+create_stripplot(eng_train_sections, 'eng_train_strip')
+create_stripplot(nld_train_sections, 'nld_train_strip')
+create_stripplot(eng_test_sections, 'eng_test_strip')
+create_stripplot(nld_test_sections, 'nld_test_strip')
 
 def main(argv=None):
     if argv is None:
